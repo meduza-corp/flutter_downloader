@@ -50,6 +50,9 @@ import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import java.net.Proxy
+import java.net.URLConnection
+import java.net.InetSocketAddress
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
     Worker(context, params),
@@ -250,6 +253,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         return downloadedBytes
     }
 
+    private fun URL.openConnectionWithProxy(proxy: Proxy?): URLConnection {
+        return if (proxy != null) openConnection(proxy) else openConnection()
+    }
+
     private fun downloadFile(
         context: Context,
         fileURL: String,
@@ -279,6 +286,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 lastProgress = task.progress
             }
 
+            val proxyString: String? = inputData.getString(ARG_PROXY)
+            val proxy: Proxy? = if (!proxyString.isNullOrEmpty()) {
+                val proxyUrl = URL(proxyString)
+                Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyUrl.host, proxyUrl.port))
+            } else null
+
             // handle redirection logic
             while (true) {
                 if (!visited.containsKey(url)) {
@@ -293,17 +306,17 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     trustAllHosts()
                     if (resourceUrl.protocol.lowercase(Locale.US) == "https") {
                         val https: HttpsURLConnection =
-                            resourceUrl.openConnection() as HttpsURLConnection
+                            resourceUrl.openConnectionWithProxy(proxy) as HttpsURLConnection
                         https.hostnameVerifier = DO_NOT_VERIFY
                         https
                     } else {
-                        resourceUrl.openConnection() as HttpURLConnection
+                        resourceUrl.openConnectionWithProxy(proxy) as HttpURLConnection
                     }
                 } else {
                     if (resourceUrl.protocol.lowercase(Locale.US) == "https") {
-                        resourceUrl.openConnection() as HttpsURLConnection
+                        resourceUrl.openConnectionWithProxy(proxy) as HttpsURLConnection
                     } else {
-                        resourceUrl.openConnection() as HttpURLConnection
+                        resourceUrl.openConnectionWithProxy(proxy) as HttpURLConnection
                     }
                 }
                 log("Open connection to $url")
@@ -830,6 +843,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     companion object {
         const val ARG_URL = "url"
+        const val ARG_PROXY = "proxy"
         const val ARG_FILE_NAME = "file_name"
         const val ARG_SAVED_DIR = "saved_file"
         const val ARG_HEADERS = "headers"
