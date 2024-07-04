@@ -95,6 +95,7 @@ class FlutterDownloader {
     required String url,
     required String savedDir,
     String? fileName,
+    String? proxy,
     Map<String, String> headers = const {},
     bool showNotification = true,
     bool openFileFromNotification = true,
@@ -118,6 +119,7 @@ class FlutterDownloader {
         'save_in_public_storage': saveInPublicStorage,
         'timeout': timeout,
         'allow_cellular': allowCellular,
+        'proxy': proxy,
       });
 
       if (taskId == null) {
@@ -271,6 +273,7 @@ class FlutterDownloader {
     required String taskId,
     bool requiresStorageNotLow = true,
     int timeout = 15000,
+    String? proxy,
   }) async {
     assert(_initialized, 'plugin flutter_downloader is not initialized');
 
@@ -279,6 +282,7 @@ class FlutterDownloader {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
         'timeout': timeout,
+        'proxy': proxy,
       });
     } on PlatformException catch (e) {
       _log(e.message);
@@ -301,6 +305,7 @@ class FlutterDownloader {
     required String taskId,
     bool requiresStorageNotLow = true,
     int timeout = 15000,
+    String? proxy,
   }) async {
     assert(_initialized, 'plugin flutter_downloader is not initialized');
 
@@ -309,6 +314,7 @@ class FlutterDownloader {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
         'timeout': timeout,
+        'proxy': proxy,
       });
     } on PlatformException catch (e) {
       _log(e.message);
