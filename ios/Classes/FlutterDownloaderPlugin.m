@@ -24,6 +24,7 @@
 #define KEY_OPEN_FILE_FROM_NOTIFICATION @"open_file_from_notification"
 #define KEY_QUERY @"query"
 #define KEY_TIME_CREATED @"time_created"
+#define KEY_PROXY @"proxy"
 
 #define NULL_VALUE @"<null>"
 
@@ -160,8 +161,12 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
     return _session;
 }
 
-- (NSURLSessionDownloadTask*)downloadTaskWithURL: (NSURL*) url fileName: (NSString*) fileName andSavedDir: (NSString*) savedDir andHeaders: (NSString*) headers
+- (NSURLSessionDownloadTask*)downloadTaskWithURL: (NSURL*) url fileName: (NSString*) fileName andSavedDir: (NSString*) savedDir andHeaders: (NSString*) headers andProxy: (NSString*) proxy
 {
+    if (debug) {
+        NSLog(@"Using proxy: %@", proxy);
+    }
+
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     if (headers != nil && [headers length] > 0) {
         NSError *jsonError;
@@ -176,7 +181,24 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
             [request setValue:value forHTTPHeaderField:key];
         }
     }
-    NSURLSessionDownloadTask *task = [[self currentSession] downloadTaskWithRequest:request];
+
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
+
+    if (proxy != nil && [proxy length] > 0) {
+        NSURL *proxyUrl = [NSURL URLWithString:proxy];
+        NSString *proxyHost = [proxyUrl host];
+        NSNumber *proxyPort = [proxyUrl port];
+        if (proxyHost && proxyPort) {
+            configuration.connectionProxyDictionary = @{
+                (NSString *)kCFNetworkProxiesHTTPEnable: @YES,
+                (NSString *)kCFNetworkProxiesHTTPProxy: proxyHost,
+                (NSString *)kCFNetworkProxiesHTTPPort: proxyPort,
+            };
+        }
+    }
+
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:nil];
+    NSURLSessionDownloadTask *task = [session downloadTaskWithRequest:request];
     // store task id in taskDescription
     task.taskDescription = [self createTaskId];
     [task resume];
@@ -722,8 +744,9 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
     NSString *headers = call.arguments[KEY_HEADERS];
     NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
     NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
+    NSString *proxy = call.arguments[KEY_PROXY];
     
-    NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
+    NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers andProxy:proxy];
     
     NSString *taskId = [self identifierForTask:task];
     
@@ -784,6 +807,7 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
 
 - (void)resumeMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSString *taskId = call.arguments[KEY_TASK_ID];
+    NSString *proxy = call.arguments[KEY_PROXY];
     NSDictionary* taskDict = [self loadTaskWithId:taskId];
     if (taskDict != nil) {
         NSNumber* status = taskDict[KEY_STATUS];
@@ -835,6 +859,7 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
 
 - (void)retryMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSString *taskId = call.arguments[KEY_TASK_ID];
+    NSString *proxy = call.arguments[KEY_PROXY];
     NSDictionary* taskDict = [self loadTaskWithId:taskId];
     if (taskDict != nil) {
         NSNumber* status = taskDict[KEY_STATUS];
@@ -844,7 +869,7 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
             NSString *fileName = taskDict[KEY_FILE_NAME];
             NSString *headers = taskDict[KEY_HEADERS];
 
-            NSURLSessionDownloadTask *newTask = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
+            NSURLSessionDownloadTask *newTask = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers andProxy:proxy];
             NSString *newTaskId = [self identifierForTask:newTask];
 
             // update memory-cache
