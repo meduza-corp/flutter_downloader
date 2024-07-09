@@ -164,7 +164,7 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
 - (NSURLSessionDownloadTask*)downloadTaskWithURL: (NSURL*) url fileName: (NSString*) fileName andSavedDir: (NSString*) savedDir andHeaders: (NSString*) headers andProxy: (NSString*) proxy
 {
     if (debug) {
-        NSLog(@"Using proxy: %@", proxy);
+        NSLog(@"Using proxy: %@", proxy ?: @"No proxy");
     }
 
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
@@ -183,17 +183,19 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
     }
 
     NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
-
-    if (proxy != nil && [proxy length] > 0) {
+    
+    if (proxy != nil && ![proxy isKindOfClass:[NSNull class]] && [proxy length] > 0) {
         NSURL *proxyUrl = [NSURL URLWithString:proxy];
-        NSString *proxyHost = [proxyUrl host];
-        NSNumber *proxyPort = [proxyUrl port];
-        if (proxyHost && proxyPort) {
-            configuration.connectionProxyDictionary = @{
-                (NSString *)kCFNetworkProxiesHTTPEnable: @YES,
-                (NSString *)kCFNetworkProxiesHTTPProxy: proxyHost,
-                (NSString *)kCFNetworkProxiesHTTPPort: proxyPort,
-            };
+        if (proxyUrl) {
+            NSString *proxyHost = [proxyUrl host];
+            NSNumber *proxyPort = [proxyUrl port];
+            if (proxyHost && proxyPort) {
+                configuration.connectionProxyDictionary = @{
+                    (NSString *)kCFNetworkProxiesHTTPEnable: @YES,
+                    (NSString *)kCFNetworkProxiesHTTPProxy: proxyHost,
+                    (NSString *)kCFNetworkProxiesHTTPPort: proxyPort,
+                };
+            }
         }
     }
 
